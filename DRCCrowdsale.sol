@@ -193,20 +193,23 @@ contract DRCCrowSale is SafeMath,DSAuth {
     DRCToken public DRC;
 
     // Constants
-    uint256 public constant tokensPerEth = 20000;// DRC per ETH
+    uint256 public constant tokensPerEth = 10000;// DRC per ETH 
+    uint256 public constant presalePerEth = 10526;// DRC per ETH 
+    
     uint256 public constant totalSupply = 1 * 1e9 * 1e18; // Total DRC amount created
 
-    uint256 public tokensForTeam     = totalSupply * 10 / 100;
-    uint256 public tokensForParnter  = totalSupply * 10 / 100;
-    uint256 public tokensForPlatform = totalSupply * 30 / 100;
+    uint256 public tokensForTeam     = totalSupply * 15 / 100;
+    uint256 public tokensForParnter  = totalSupply * 15 / 100;
+    uint256 public tokensForPlatform = totalSupply * 45 / 100;
 
-    uint256 public tokensForPresale1 = totalSupply * 15 / 100;
-    uint256 public tokensForPresale2 = totalSupply * 15 / 100;
-    uint256 public tokensForSale     = totalSupply * 20 / 100;
+    uint256 public tokensForPresale1 = totalSupply * 5 / 100;
+    uint256 public tokensForPresale2 = totalSupply * 10 / 100;
+    uint256 public tokensForSale     = totalSupply * 10 / 100;
     
     address public team;
     address public parnter;
     address public platform;
+    address public presale1;
     
     uint256 public Presale1Sold = 0;
     uint256 public Presale2Sold = 0;
@@ -242,9 +245,15 @@ contract DRCCrowSale is SafeMath,DSAuth {
         icoState = preIcoState;
     }
     
+    uint public finishTime = 0;
     function finishIco() external Auth {
         require(icoState == IcoState.Running);
         icoState = IcoState.Finished;
+        finishTime = block.timestamp;
+    }
+    
+    function set(uint time) external  {
+        finishTime = time;
     }
     
     uint public unfreezeStartTime = 0;
@@ -307,38 +316,68 @@ contract DRCCrowSale is SafeMath,DSAuth {
             throw ;
         }
         
+        require(unfreezeAmount > 0 );
+        
         DRC.unfreeze(msg.sender,unfreezeAmount);
         unfroze[step][msg.sender] = true;
     }
     
-    function platformUnfreeze(uint step) external{
+    //team unfreeze
+    function teamUnfreeze() external{
+        uint month = 6;
         
-        assert(unfroze[step][msg.sender] == false);
         assert(DRC.freezeOf(msg.sender) > 0 );
-        assert(unfreezeStartTime > 0);
-        assert(msg.sender == platform);
+        assert(finishTime > 0);
+        assert(msg.sender == team);
+        uint step = safeSub(block.timestamp, finishTime) / (3600*24*30);
         
         uint256 freeze  = DRC.freezeOf(msg.sender);
         uint256 unfreezeAmount = 0;
-
-        if(step == 1){
-            require( block.timestamp > (unfreezeStartTime + 1 years));
-            unfreezeAmount = freeze / 3;
-        }
-        else if(step == 2){
-            require( block.timestamp > (unfreezeStartTime + 2 years));
-            unfreezeAmount = freeze / 2;
-        }
-        else if(step == 3){
-            require( block.timestamp > (unfreezeStartTime + 3 years));
-            unfreezeAmount = freeze;
-        }
-        else{
-            throw ;
+        
+        uint256 per = tokensForTeam / month;
+        
+        for(uint i = 0 ;i <= step && i < month;i++){
+            if(unfroze[i][msg.sender] == false){
+                unfreezeAmount += per;
+            }
         }
         
+        require(unfreezeAmount > 0 );
+        require(unfreezeAmount <= freeze);
+
         DRC.unfreeze(msg.sender,unfreezeAmount);
-        unfroze[step][msg.sender] = true;
+        for(uint j = 0; j <= step && i < month; j++){
+            unfroze[j][msg.sender] = true;
+        }
+    }
+    
+    //platform unfreeze
+     function platformUnfreeze() external{
+        uint month = 12;
+        
+        assert(DRC.freezeOf(msg.sender) > 0 );
+        assert(finishTime > 0);
+        assert(msg.sender == platform);
+        uint step = safeSub(block.timestamp, finishTime) / (3600*24*30);
+        
+        uint256 freeze  = DRC.freezeOf(msg.sender);
+        uint256 unfreezeAmount = 0;
+        
+        uint256 per = tokensForPlatform / month;
+        
+        for(uint i = 0 ;i <= step && i < month;i++){
+            if(unfroze[i][msg.sender] == false){
+                unfreezeAmount += per;
+            }
+        }
+        
+        require(unfreezeAmount > 0 );
+        require(unfreezeAmount <= freeze);
+
+        DRC.unfreeze(msg.sender,unfreezeAmount);
+        for(uint j = 0; j <= step && i < month; j++){
+            unfroze[j][msg.sender] = true;
+        }
     }
     
     // Constructor
@@ -346,7 +385,7 @@ contract DRCCrowSale is SafeMath,DSAuth {
 
     }
 
-    function initialize(DRCToken drc,address _team,address _parnter,address _platform) Auth public {
+    function initialize(DRCToken drc,address _team,address _parnter,address _platform,address _presale1) Auth public {
         assert(address(DRC) == address(0));
         assert(drc.owner() == address(this));
         assert(drc.totalSupply() == 0);
@@ -355,17 +394,23 @@ contract DRCCrowSale is SafeMath,DSAuth {
         team =_team;
         parnter=_parnter;
         platform=_platform;
+        presale1 = _presale1;
 
         DRC = drc;
         DRC.mint(totalSupply);
         
         // transfer to team partner platform 
         DRC.push(team, tokensForTeam);
+        DRC.freeze(team,tokensForTeam);
+        
         DRC.push(parnter, tokensForParnter);
         
-        // freeze 3 years
+        // freeze
         DRC.push(platform, tokensForPlatform);
         DRC.freeze(platform,tokensForPlatform);
+        
+        DRC.push(presale1, tokensForPresale1);
+        
     }
 
     function() payable public {
@@ -451,11 +496,11 @@ contract DRCCrowSale is SafeMath,DSAuth {
     {
         if(icoState == IcoState.Presale1)
         {
-            return calcPresaleDiscount(_eth, 90);
+            return safeMult(_eth , presalePerEth);
         }
         else if(icoState == IcoState.Presale2)
         {
-            return calcPresaleDiscount(_eth, 50);
+           return safeMult(_eth , presalePerEth);
         }
 
         return safeMult(_eth , tokensPerEth);
