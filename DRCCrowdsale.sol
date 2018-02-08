@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity ^0.4.19;
 
 contract SafeMath {
 
@@ -80,7 +80,7 @@ contract StandardToken is SafeMath,ERC20 {
         return allowed[_owner][_spender];
     }
     
-     function freezeOf(address _owner) constant public returns ( uint256 balance) {
+    function freezeOf(address _owner) constant public returns ( uint256 balance) {
         return freezes[_owner];
     }
     
@@ -147,12 +147,12 @@ contract DRCToken is StandardToken,DSAuth {
         
     }
 
-    function mint(uint256 wad) Auth public {
+    function mint(uint256 wad) Owner public {
         balances[msg.sender] = safeAdd(balances[msg.sender], wad);
         _totalSupply = safeAdd(_totalSupply, wad);
     }
 
-    function burn(uint256 wad) Auth public {
+    function burn(uint256 wad) Owner public {
         balances[msg.sender] = safeSub(balances[msg.sender], wad);
         _totalSupply = safeSub(_totalSupply, wad);
         Burn(msg.sender, wad);
@@ -194,7 +194,7 @@ contract DRCCrowSale is SafeMath,DSAuth {
 
     // Constants
     uint256 public constant tokensPerEth = 10000;// DRC per ETH 
-    uint256 public constant presalePerEth = 10526;// DRC per ETH 
+    uint256 public presalePerEth;// DRC per ETH 
     
     uint256 public constant totalSupply = 1 * 1e9 * 1e18; // Total DRC amount created
 
@@ -218,6 +218,10 @@ contract DRCCrowSale is SafeMath,DSAuth {
     enum IcoState {Init,Presale1, Presale2, Running, Paused, Finished}
     IcoState public icoState = IcoState.Init;
     IcoState public preIcoState = IcoState.Init;
+    
+    function setPresalePerEth(uint256 discount) external Auth{
+        presalePerEth = discount;
+    }
 
     function startPreSale1() external Auth {
         require(icoState == IcoState.Init);
@@ -250,10 +254,6 @@ contract DRCCrowSale is SafeMath,DSAuth {
         require(icoState == IcoState.Running);
         icoState = IcoState.Finished;
         finishTime = block.timestamp;
-    }
-    
-    function set(uint time) external  {
-        finishTime = time;
     }
     
     uint public unfreezeStartTime = 0;
@@ -423,7 +423,7 @@ contract DRCCrowSale is SafeMath,DSAuth {
                  (icoState == IcoState.Presale2) );
         // require          
         if((icoState == IcoState.Presale1) || (icoState == IcoState.Presale2)){
-            require(msg.value >= 0.05 ether);//todo 10 eth
+            require(msg.value >= 10 ether);
         } 
         else {
             require(msg.value >= 0.01 ether);
@@ -506,12 +506,6 @@ contract DRCCrowSale is SafeMath,DSAuth {
         return safeMult(_eth , tokensPerEth);
     }
 
-    function calcPresaleDiscount(uint256 _value, uint256 _percent) private pure returns ( uint256)
-    {
-        // calc (eth * tokensPerEth * 100) /(100 - _percent)
-        return safeMult(safeMult(_value , tokensPerEth) , 100) / safeSub(100 , _percent);
-    }
-    
     function finalize() external Owner payable {
         require(this.balance > 0 );
 

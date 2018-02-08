@@ -1,4 +1,4 @@
-pragma solidity 0.4.4;
+pragma solidity 0.4.19;
 
 
 /// @title Multisignature wallet - Allows multiple parties to agree on transactions before execution.
@@ -26,7 +26,7 @@ contract MultiSigWallet {
 
     struct Transaction {
         address destination;
-        uint value;
+        uint256 value;
         bytes data;
         bool executed;
     }
@@ -184,7 +184,7 @@ contract MultiSigWallet {
     /// @param value Transaction ether value.
     /// @param data Transaction data payload.
     /// @return Returns transaction ID.
-    function submitTransaction(address destination, uint value, bytes data)
+    function submitTransaction(address destination, uint256 value, bytes data)
         public
         returns (uint transactionId)
     {
@@ -260,7 +260,7 @@ contract MultiSigWallet {
     /// @param value Transaction ether value.
     /// @param data Transaction data payload.
     /// @return Returns transaction ID.
-    function addTransaction(address destination, uint value, bytes data)
+    function addTransaction(address destination, uint256 value, bytes data)
         internal
         notNull(destination)
         returns (uint transactionId)
